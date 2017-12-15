@@ -17,6 +17,7 @@ python infoBottleneck.py ami_test_file/ES2002_test.wav ami_test_file/ES2002_test
 
 ## Benchmarks
 All values in Speaker Error (%)
+
 | Method | AMI (ihm)  | ICSI |
 | -------------| ------------- | ------------- |
 | Bayesian Information Criterion  | 32.64  | 41.54 |
