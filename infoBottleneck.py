@@ -3,21 +3,19 @@
 # Date created: Nov 5 2017
 
 # This serves as the main script for agglomerative clustering for speaker diarization using the information bottleneck criterion.
-# There are additional scripts planned:
-#	functions.py: Various mathematical functions - entropy, mutual information, JS-divergence, etc
-#	uniform_segment.py: Uniformly segment the speech regions from a session and extract features from them
-#	infoBottlenech.py: (This script) Perform the speaker diarization
-#	reAlign.py: Perform fine-tuning of the speaker boundaries using the viterbi criterion
+# This script includes one synthetic example, two real examples - clips from the AMI meeting corpus, and a function to perform diarization on a single file given the VAD
+
+# All relevant functions for performing agglomerative clustering ( computing mutual information, JS-divergence, KL-distance, etc.) functions for feature extraction, GMM training, Viterbi re-alignment, etc. are included in functions.py. 
 
 import sys
 import warnings
 import numpy as np
-import pandas as pd
 from functions import *
 from scipy.cluster.hierarchy import fcluster
 
 def run_synthetic_example():
-	# Used mostly while algorithm development
+	# Used mostly during  algorithm development
+
 	np.random.seed(1000)
 	np.set_printoptions(precision=5)
 	np.core.arrayprint._line_width = 160
@@ -39,42 +37,79 @@ def run_synthetic_example():
 def run_example():
 	# Using a clip from AMI corpus consisting of 1 male speaker and 1 female speaker
 
-	segLen,frameRate = 2,100
+	segLen,frameRate,numMix = 2,100,32
 	np.random.seed(1000)
 	np.set_printoptions(precision=5)
 	np.core.arrayprint._line_width = 160
-	wavFile = 'ami_test_file/ES2002_test.wav'
-	vad = doVAD(wavFile)
-	mfcc,GMM = createGMM(wavFile,32,vad=vad)
+	wavFile = 'ami_test_file/EN2005_test.wav'
+	vad = doVAD(wavFile,frameRate)
+	np.savetxt('vad.txt',vad)
+	mfcc,GMM = trainGMMScipy(wavFile, numMix, frameRate, vad=vad)
 	p_y_x = uniformSegmentsAndPosterior(mfcc,GMM,segLen=segLen,frameRate=frameRate)
-	p_y_x = softmax(p_y_x)
+	p_y_x[p_y_x<1e-10] = 1e-10
 	Z,C = cluster(p_y_x,2, 10,0)
 
 	clust = fcluster(Z,2,criterion='maxclust')
 	frameClust = convertDecisionsSegToFrame(clust, segLen, frameRate, mfcc.shape[0])
 	pass1hyp = -1*np.ones(len(vad))
 	pass1hyp[vad] = frameClust
-	np.savetxt('pass1hypSpkr.txt',pass1hyp,fmt="%3.2f")
+	writeRttmFile(pass1hyp, frameRate, wavFile, 'pass1hypSpkr.rttm')
 
 	# By enforcing a minimum segment (block) size
 	frameClust = viterbiRealignment(mfcc,frameClust,segLen,frameRate,minBlockLen=25,numMix=16)
 	pass2hyp = -1*np.ones(len(vad))
 	pass2hyp[vad] = frameClust
-	np.savetxt('pass2hypSpkr.txt',pass2hyp,fmt="%3.2f")
-
-	# Trying with multiple passes
-	frameClust = viterbiRealignment(mfcc,frameClust,segLen,frameRate,minBlockLen=20,numMix=16)
-	pass3hyp = -1*np.ones(len(vad))
-	pass3hyp[vad] = frameClust
-	np.savetxt('pass3hypSpkr.txt',pass3hyp,fmt="%3.2f")
-
-	frameClust = viterbiRealignment(mfcc,frameClust,segLen,frameRate,minBlockLen=10,numMix=16)
-	pass4hyp = -1*np.ones(len(vad))
-	pass4hyp[vad] = frameClust
-	np.savetxt('pass4hypSpkr.txt',pass4hyp,fmt="%3.2f")
-
-run_example()
+	writeRttmFile(pass2hyp, frameRate, wavFile, 'pass2hypSpkr.rttm')
 
 
 
+def singleFile(wavFile, vadFile, rttmFile, numClusters):	
+	# Takes a wavefile as input, and outputs the diarization results in rttm format
 
+	segLen,frameRate = 2,50
+	np.random.seed(1000)
+	vad = np.loadtxt(vadFile).astype('bool')
+	vad = np.interp(np.linspace(0,len(vad),int(len(vad)*frameRate/100.0)),np.arange(len(vad)),vad).astype('bool')
+
+	# Training using scipy GMM's
+	# mfcc,vad,p_y_x = trainGMMScipy(wavFile, 'models/scipy_64mix_13mfcc.sav', frameRate, segLen, vad=None, localGMM=True, numMix=128)
+
+	# ..... OR ..... 
+
+	# Training using kaldi GMM's
+	mfcc,vad,p_y_x = extractFeatAndPostKaldi(wavFile, 'models/ami_kaldi_64mix_19mfcc_nodel.mdl', frameRate, segLen, '/home/manoj/kaldi/', vad=vad, localGMM=True, numMix=128)
+
+	p_y_x[p_y_x<1e-10] = 1e-10
+	Z,C = cluster(p_y_x,2,10,0)
+
+	clust = fcluster(Z,numClusters,criterion='maxclust')
+	frameClust = convertDecisionsSegToFrame(clust, segLen, frameRate, mfcc.shape[0])
+	pass1hyp = -1*np.ones(len(vad))
+	pass1hyp[vad] = frameClust
+
+	frameClust = viterbiRealignment(mfcc,frameClust,segLen,frameRate,minBlockLen=25,numMix=16)
+	pass2hyp = -1*np.ones(len(vad))
+	pass2hyp[vad] = frameClust
+	if len(np.unique(pass2hyp)) < numClusters+1:
+		writeRttmFile(pass1hyp, frameRate, wavFile, rttmFile)
+		return
+
+	writeRttmFile(pass2hyp, frameRate, wavFile, rttmFile)
+
+	# If required, re-alignments can be repeated. 
+#	frameClust = viterbiRealignment(mfcc,frameClust,segLen,frameRate,minBlockLen=20,numMix=16)
+#	pass3hyp = -1*np.ones(len(vad))
+#	pass3hyp[vad] = frameClust
+#	if len(np.unique(pass3hyp)) < numClusters+1:
+#		writeRttmFile(pass2hyp, frameRate, wavFile, rttmFile)
+#		return
+
+
+
+#============ MAIN FUNCTION ==========
+if __name__ == '__main__':
+	if len(sys.argv)!=5:
+		print("Usage: "+sys.argv[0]+" <audioFile> <vadFile> <output rttm file> <numClusters> ")
+		sys.exit(1)
+
+	singleFile(sys.argv[1],sys.argv[2],sys.argv[3], int(sys.argv[4]))
