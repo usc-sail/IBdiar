@@ -32,7 +32,7 @@ def run_synthetic_example():
 	for i in range(N/2,3*N/4):	
 		p_y_x[i] = [0.03,0.03,0.91,0.03]
 
-	cluster(p_y_x, 2, 0.5,1)
+	cluster(p_y_x, 2, 10,1)
 
 def run_example():
 	# Using a clip from AMI corpus consisting of 1 male speaker and 1 female speaker
