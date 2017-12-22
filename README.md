@@ -34,6 +34,10 @@ All values in Diarization Error Rate (%)
 | [Idiap IB](https://github.com/idiap/IBDiarization) Toolkit | 27.55 | 38.35 |
 | SAIL IB Toolkit | 28.40  | 39.50 |
 
+## Reference
+
+D. Vijayasenan, F. Valente and H. Bourlard, "An Information Theoretic Approach to Speaker Diarization of Meeting Data," in IEEE Transactions on Audio, Speech, and Language Processing, vol. 17, no. 7, pp. 1382-1393, Sept. 2009.
+
 ## Authors
 
  Manoj Kumar (prabakar@usc.edu)
