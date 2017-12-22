@@ -151,7 +151,7 @@ def trainGMMScipy(wavFile, GMMfile=None, frameRate=50, segLen=2, vad=None, local
 
 
 	wavData,_ = librosa.load(wavFile,sr=16000)
-	mfcc = librosa.feature.mfcc(wavData, sr=16000, n_mfcc=13,hop_length=320).T
+	mfcc = librosa.feature.mfcc(wavData, sr=16000, n_mfcc=19,hop_length=320).T
 	# deltamfcc = librosa.feature.delta(mfcc,order=1)
 	# deltadeltamfcc = librosa.feature.delta(mfcc,order=2)
 	# mfcc = np.vstack((mfcc,deltamfcc,deltadeltamfcc)).T

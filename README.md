@@ -5,15 +5,25 @@ The toolkit performs speaker diarization (finding 'who spoke when?') using the i
 ### Prerequisites
 
 Python libraries: numpy, scipy, scikit-learn, librosa, [kaldi_io](https://github.com/vesis84/kaldi-io-for-python) (optional)
-An installed Kaldi version is strongly recommended, but not mandatory
+An installed [Kaldi](https://github.com/kaldi-asr/kaldi) toolkit is highly recommended, but not mandatory
 
 ## Getting Started
 
-Two excerpts from the AMI Meeting corpus are included alongwith manual annotations for speaker turns, labels and vad. Each file contains two speakers. Run the toolkit as follows:
+For a quick demo, execute `runAMIExample.py` or `runSyntheticExample.py` (without any arguments).
+The excerpts from AMI Meeting corpus come alognwith manual annotations for speaker turns, labels and vad. Each audio file contains two speakers. The synthetic example provides visualization using a dendrogram.
 
+For a more comprehensive usage, refer to `infoBottleneck.py`
 ```
-python infoBottleneck.py ami_test_file/ES2002_test.wav ami_test_file/ES2002_test.vad ES2002.rttm 2
+usage: infoBottleneck.py [-h] [--beta BETA] [--segLen SEGLEN] 
+                         [--frameRate FRAMERATE] [--numCluster NUMCLUSTER]
+                         [--library LIBRARY] [--vadFile VADFILE]
+                         [--gmmFile GMMFILE] [--localGMM LOCALGMM]
+                         [--kaldiRoot KALDIROOT] [--numMix NUMMIX]
+                         [--minBlockLen MINBLOCKLEN]
+                         [--numRealignments NUMREALIGNMENTS]
+                         wavFile rttmFile
 ```
+Execute with the help option for more information about each parameter, including default values. 
 
 ## Benchmarks
 All values in Speaker Error (%)
