@@ -4,13 +4,13 @@ The toolkit performs speaker diarization (finding 'who spoke when?') using the i
 
 ### Prerequisites
 
-Python libraries: numpy, scipy, scikit-learn, librosa, [kaldi_io](https://github.com/vesis84/kaldi-io-for-python) (optional)
+Python libraries: numpy, scipy, scikit-learn, librosa, [kaldi_io](https://github.com/vesis84/kaldi-io-for-python) (optional)  
 An installed [Kaldi](https://github.com/kaldi-asr/kaldi) toolkit is highly recommended, but not mandatory
 
 ## Getting Started
 
-For a quick demo, execute `runAMIExample.py` or `runSyntheticExample.py` (without any arguments).
-The excerpts from AMI Meeting corpus come alognwith manual annotations for speaker turns, labels and vad. Each audio file contains two speakers. The synthetic example provides visualization using a dendrogram.
+For a quick demo, execute `runAMIExample.py` or `runSyntheticExample.py` without any arguments.   
+The excerpts from AMI Meeting corpus come alongwith manual annotations for speaker turns, labels and vad. Each audio file contains two speakers. The synthetic example provides visualization using a dendrogram.
 
 For a more comprehensive usage, refer to `infoBottleneck.py`
 ```
@@ -26,7 +26,7 @@ usage: infoBottleneck.py [-h] [--beta BETA] [--segLen SEGLEN]
 Execute with the help option for more information about each parameter, including default values. 
 
 ## Benchmarks
-All values in Speaker Error (%)
+All values in Diarization Error Rate (%)
 
 | Method | AMI (ihm)  | ICSI |
 | -------------| ------------- | ------------- |
