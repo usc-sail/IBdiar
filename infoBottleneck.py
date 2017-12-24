@@ -63,7 +63,6 @@ frameClust = convertDecisionsSegToFrame(clust, args.segLen, args.frameRate, mfcc
 pass1hyp = -1*np.ones(len(vad))
 pass1hyp[vad] = frameClust
 
-numRealignments = 1
 prevPassHyp = pass1hyp
 for realignIter in range(args.numRealignments):
     frameClust = viterbiRealignment(mfcc,frameClust,args.segLen,args.frameRate,args.minBlockLen,numMix=16)
