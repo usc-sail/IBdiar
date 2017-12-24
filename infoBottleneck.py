@@ -47,6 +47,8 @@ np.random.seed(1000)
 if args.vadFile is not None:
     vad = np.loadtxt(args.vadFile).astype('bool')
     vad = np.interp(np.linspace(0,len(vad),int(len(vad)*args.frameRate/100.0)),np.arange(len(vad)),vad).astype('bool')
+else:
+    vad = None
 
 if args.library == "kaldi":
     mfcc,vad,p_y_x = trainGMMWithKaldi(args.wavFile, args.gmmFile, args.frameRate, args.segLen, args.kaldiRoot, args.vadFile, args.localGMM, args.numMix)
