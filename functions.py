@@ -232,7 +232,7 @@ def trainGMMWithKaldi(wavFile, mdlFile, frameRate, segLen, kaldiRoot, vad, local
         os.system(kaldiRoot+'/src/gmmbin/gmm-global-get-post --n='+numMix+' '+mdlFile+' ark:local_kaldi_data/out.ark ark:local_kaldi_data/post.ark')
     else:
         pwd = os.getcwd()
-        os.system("sed \"s/local_kaldi_data/${PWD//\//\\\/}\/local_kaldi_data/g\" local_kaldi_data/out.scp > local_kaldi_data/feats.scp")
+	os.system("sed \"s~local_kaldi_data~${PWD}/local_kaldi_data~g\" local_kaldi_data/out.scp > local_kaldi_data/feats.scp")
         os.system("echo \"temp temp\" > local_kaldi_data/utt2spk")
         os.system("bash train_diag_ubm.sh --num-iters 20 --num-frames 500000 --nj 1 --num-gselect "+str(numMix)+" "+pwd+"/local_kaldi_data/ "+str(numMix)+" "+pwd+"/local_kaldi_data/")
         os.system(kaldiRoot+'/src/gmmbin/gmm-global-get-post --n='+str(numMix)+' local_kaldi_data/final.dubm ark:local_kaldi_data/out.ark ark:local_kaldi_data/post.ark')
