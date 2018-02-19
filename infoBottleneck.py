@@ -51,9 +51,9 @@ else:
     vad = None
 
 if args.library == "kaldi":
-    mfcc,vad,p_y_x = trainGMMWithKaldi(args.wavFile, args.gmmFile, args.frameRate, args.segLen, args.kaldiRoot, args.vadFile, args.localGMM, args.numMix)
+    mfcc,vad,p_y_x = trainGMMWithKaldi(args.wavFile, args.gmmFile, args.frameRate, args.segLen, args.kaldiRoot, vad, args.localGMM, args.numMix)
 else:
-    mfcc,vad,p_y_x = trainGMMWithSklearn(args.wavFile, args.gmmFile, args.frameRate, args.segLen, args.vadFile, args.localGMM, args.numMix)
+    mfcc,vad,p_y_x = trainGMMWithSklearn(args.wavFile, args.gmmFile, args.frameRate, args.segLen, vad, args.localGMM, args.numMix)
 
 p_y_x[p_y_x<1e-10] = 1e-10
 Z,C = cluster(p_y_x,args.beta,0)
