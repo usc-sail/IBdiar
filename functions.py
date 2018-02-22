@@ -63,7 +63,9 @@ def KL_div(p_x, p_y,call,pie_i,pie_j):
             mysum = 10,000
     return mysum
 
-def fastverbose_computeDeltaObj(p_y_c_i, p_y_c_j, p_x_c_i, p_x_c_j, p_c, i, j, beta):
+
+def fastverbose_oneBigFunction(p_y_c_i, p_y_c_j, p_x_c_i, p_x_c_j, side_p_y_c_i, side_p_y_c_j, weighted_p_y_c_i, weighted_p_y_c_j, p_c, i, j, beta, alpha, weights):
+
     # Computes the change in objective function resulting from merging clusters 'i' and 'j', given the 
     # conditional probabilities p(y|c), p(x|c) and the cluster weights p(c). Refer to JS_div() and KL_div() 
     # functions for a more detailed alternative
@@ -71,16 +73,22 @@ def fastverbose_computeDeltaObj(p_y_c_i, p_y_c_j, p_x_c_i, p_x_c_j, p_c, i, j, b
     # Input:
     # p_y_c_i: p_y_c[i]; p_y_c_j: p_y_c[j]; 
     # p_x_c_i: p_x_c[i]; p_x_c_j: p_x_c[j]
+    # side_p_y_c_i: side_p_y_c[i]; side_p_y_c_j: side_p_y_c[j]; 
+    # weighted_p_x_c_i: weighted_p_x_c[i]; weighted_p_x_c_j: weighted_p_x_c[j]
+    # alpha, beta: scalars for weighing the distributions p(y|c) and side_p(y|c) respectively
+    # weights: vector for weighing weighted weighted_p(y|c). Same length as number of mixtures in weighted_p(y|c)
     #
     # Output: 
-    #     (p_c[i] + p_c[j])*(JS_div(p(y|c),p_c,i,j) - (1/beta)*JS_div(p(x|c,)p_c,i,j))
+    #     (p_c[i] + p_c[j])*(JS_div(p(y|c),p_c,i,j) - (1/beta)*JS_div(p(x|c,)p_c,i,j)) - (1/alpha)*JS_div(side_p(y|c), p_c,i,j) - (1/weights)*JS_div(weighted_p(y|c),p_c,i,j)
     # 
 
     pie_i, pie_j = p_c[i]/(p_c[i] + p_c[j]), p_c[j]/(p_c[i] + p_c[j])
     if np.any(pie_i*p_y_c_i + pie_j*p_y_c_j==0) is True:
-        return 10,000
+        return 10,000	# do not cluster
     if np.any(pie_i*p_x_c_i + pie_j*p_x_c_j==0) is True:
-        return -10,000
+        return -10,000	# definitely cluster
+    if side_p_y_c_i is not None and np.any(pie_i*side_p_y_c_i + pie_j*side_p_y_c_j==0) is True:
+        return -10,000	# definitely cluster
 
     q_z = pie_i*p_y_c_i + pie_j*p_y_c_j
     nzIndices = np.where(p_y_c_i!=0)
@@ -89,14 +97,40 @@ def fastverbose_computeDeltaObj(p_y_c_i, p_y_c_j, p_x_c_i, p_x_c_j, p_c, i, j, b
     klterm2 = np.sum(np.multiply(p_y_c_j[nzIndices],np.log2(np.divide(p_y_c_j[nzIndices],q_z[nzIndices]))))
     term1 = pie_i*klterm1 + pie_j*klterm2
 
-    q_z = pie_i*p_x_c_i + pie_j*p_x_c_j
-    nzIndices = np.where(p_x_c_i!=0)
-    klterm1 = np.sum(np.multiply(p_x_c_i[nzIndices],np.log2(np.divide(p_x_c_i[nzIndices],q_z[nzIndices]))))
-    nzIndices = np.where(p_x_c_j!=0)
-    klterm2 = np.sum(np.multiply(p_x_c_j[nzIndices],np.log2(np.divide(p_x_c_j[nzIndices],q_z[nzIndices]))))
-    term2 = pie_i*klterm1 + pie_j*klterm2
-    
-    return (p_c[i] + p_c[j])*(term1 - (1/beta)*term2)
+    if beta == 0:
+	beta,term2 = 1,0
+    else:
+	q_z = pie_i*p_x_c_i + pie_j*p_x_c_j
+	nzIndices = np.where(p_x_c_i!=0)
+	klterm1 = np.sum(np.multiply(p_x_c_i[nzIndices],np.log2(np.divide(p_x_c_i[nzIndices],q_z[nzIndices]))))
+	nzIndices = np.where(p_x_c_j!=0)
+	klterm2 = np.sum(np.multiply(p_x_c_j[nzIndices],np.log2(np.divide(p_x_c_j[nzIndices],q_z[nzIndices]))))
+	term2 = pie_i*klterm1 + pie_j*klterm2
+
+    if alpha == 0 or alpha is None:
+	alpha,term3 = 1,0
+    else:
+	q_z = pie_i*side_p_y_c_i + pie_j*side_p_y_c_j
+	nzIndices = np.where(side_p_y_c_i!=0)
+	klterm1 = np.sum(np.multiply(side_p_y_c_i[nzIndices],np.log2(np.divide(side_p_y_c_i[nzIndices],q_z[nzIndices]))))
+	nzIndices = np.where(side_p_y_c_j!=0)
+	klterm2 = np.sum(np.multiply(side_p_y_c_j[nzIndices],np.log2(np.divide(side_p_y_c_j[nzIndices],q_z[nzIndices]))))
+	term3 = pie_i*klterm1 + pie_j*klterm2
+
+    if weights is None:
+	term4 = 0
+    else:
+        q_z = pie_i*weighted_p_y_c_i + pie_j*weighted_p_y_c_j
+        nzIndices = np.where(weighted_p_y_c_i!=0)
+        klterm1 = np.dot(weights[nzIndices],np.multiply(weighted_p_y_c_i[nzIndices],np.log2(np.divide(weighted_p_y_c_i[nzIndices],q_z[nzIndices]))))
+        nzIndices = np.where(weighted_p_y_c_j!=0)
+        klterm2 = np.dot(weights[nzIndices],np.multiply(weighted_p_y_c_j[nzIndices],np.log2(np.divide(weighted_p_y_c_j[nzIndices],q_z[nzIndices]))))
+        term4 = pie_i*klterm1 + pie_j*klterm2
+
+    return (p_c[i] + p_c[j])*(term1 - (1/beta)*term2 - (1/alpha)*term3 + term4)
+
+
+
 
 
 def doVADWithKaldi(wavFile, frameRate, kaldiRoot):
@@ -220,7 +254,7 @@ def trainGMMWithKaldi(wavFile, mdlFile, frameRate, segLen, kaldiRoot, vad, local
     os.system(kaldiRoot+'/src/featbin/apply-cmvn ark:local_kaldi_data/cmvn.ark ark:local_kaldi_data/raw.ark ark,scp:local_kaldi_data/out.ark,local_kaldi_data/out.scp')
     for key,mat in kaldi_io.read_mat_ark('local_kaldi_data/out.ark'):
         if vad is None:
-            vad = doVADWithKaldi(wavFile,frameRate,kaldiRoot)
+            vad = doVADWithKaldi(wavFile,frameRate,kaldiRoot)	
         if mat.shape[0] > vad.shape[0]:
             vad = np.hstack((vad,np.zeros(mat.shape[0] - vad.shape[0]).astype('bool'))).astype('bool')
         elif mat.shape[0] < vad.shape[0]:
@@ -232,9 +266,8 @@ def trainGMMWithKaldi(wavFile, mdlFile, frameRate, segLen, kaldiRoot, vad, local
         os.system(kaldiRoot+'/src/gmmbin/gmm-global-get-post --n='+numMix+' '+mdlFile+' ark:local_kaldi_data/out.ark ark:local_kaldi_data/post.ark')
     else:
         pwd = os.getcwd()
-	os.system("sed \"s~local_kaldi_data~${PWD}/local_kaldi_data~g\" local_kaldi_data/out.scp > local_kaldi_data/feats.scp")
+        os.system("sed \"s~local_kaldi_data~${PWD}/local_kaldi_data~g\" local_kaldi_data/out.scp > local_kaldi_data/feats.scp")
         os.system("echo \"temp temp\" > local_kaldi_data/utt2spk")
-	os.system("sed -i \"/export KALDI_ROOT/c\export KALDI_ROOT="+kaldiRoot+"\" train_diag_ubm.sh")
         os.system("bash train_diag_ubm.sh --num-iters 20 --num-frames 500000 --nj 1 --num-gselect "+str(numMix)+" "+pwd+"/local_kaldi_data/ "+str(numMix)+" "+pwd+"/local_kaldi_data/")
         os.system(kaldiRoot+'/src/gmmbin/gmm-global-get-post --n='+str(numMix)+' local_kaldi_data/final.dubm ark:local_kaldi_data/out.ark ark:local_kaldi_data/post.ark')
     
@@ -278,7 +311,41 @@ def convertDecisionsSegToFrame(clust, segLen, frameRate, numFrames):
     frameClust[(clustI+1)*segLen*frameRate:] = clust[clustI+1]*np.ones(numFrames-(clustI+1)*segLen*frameRate)
     return frameClust
 
-def cluster(p_y_x, beta, visual):
+
+def getSidePosteriors(wavFile, kaldiRoot, frameRate, segLen, vad, pbm, numFrames):
+    os.system('mkdir local_kaldi_data')
+    with open("local_kaldi_data/temp.scp","w") as input_scp:
+        input_scp.write("temp %s" % wavFile)
+
+    os.system(kaldiRoot+'/src/featbin/compute-mfcc-feats --frame-shift='+str(1000/frameRate)+' --frame-length=40 --use-energy=true --num-ceps=19 scp:local_kaldi_data/temp.scp ark:local_kaldi_data/raw.ark')
+    os.system(kaldiRoot+'/src/featbin/compute-cmvn-stats ark:local_kaldi_data/raw.ark ark:local_kaldi_data/cmvn.ark')
+    os.system(kaldiRoot+'/src/featbin/apply-cmvn ark:local_kaldi_data/cmvn.ark ark:local_kaldi_data/raw.ark ark,scp:local_kaldi_data/out.ark,local_kaldi_data/out.scp')
+    numMix = os.popen(kaldiRoot+'/src/gmmbin/gmm-global-info '+pbm+' | grep "number of gaussians" | awk \'{print $NF}\'').readlines()[0].strip('\n')
+    os.system(kaldiRoot+'/src/gmmbin/gmm-global-get-post --n='+str(numMix)+' '+pbm+' ark:local_kaldi_data/out.ark ark:local_kaldi_data/post.ark')
+    for key,post in kaldi_io.read_post_ark('local_kaldi_data/post.ark'):
+        # Sort posteriors according to the mixture index
+        for frameI in range(len(post)):
+            post[frameI] = sorted(post[frameI],key=lambda x: x[0])
+    post = np.asarray(post)[:,:,1]
+    post = post[vad]  
+
+    segSize = frameRate*segLen
+    segLikes = []
+    for segI in range(int(np.ceil(float(post.shape[0])/(frameRate*segLen)))):
+        startI = segI*segSize
+        endI = (segI+1)*segSize
+        if endI > post.shape[0]:
+            endI = numFrames-1
+        if endI==startI:    # Reached the end 
+            break        
+        segLikes.append(np.mean(post[startI:endI,:],axis=0))
+
+    os.system("rm -rf local_kaldi_data")
+    return np.asarray(segLikes)
+
+
+
+def oneBigFunction(p_y_x, side_p_y_x, weighted_p_y_x, beta, alpha, weights, visual):
     # The main clustering function - performs bottom-up clustering using the IB criterion
     # Inputs:
     # p_y_x: Conditional probability p(y|x)
@@ -292,22 +359,30 @@ def cluster(p_y_x, beta, visual):
     # C: Cluster assignment; an m-partitiion of X, 1 <= m <= |X| 
     #    A numpy array of size [N,1]
     #
-    # Objective: Min (1/beta)*I(X,C) - I(Y,C)
+    # Objective: Min (1/beta)*I(X,C) - I(Y,C) + (1/alpha)*I(Y',C) + weights*I(Y_weighted,C)
     # X: Features at segment-level
     # Y: Relevance variable, typically components from a GMM
+    # Y': 'Irrelevant' variable, also components form a GMM
+    # Y_weighted: Generalization of Y, GMM with component-specific weights specified using the vector 'weights'
     #
     # NOTE: This function ALWAYS creates 2 clusters. Use the fcluster() method to prune the dendrogram 
     # variable with the desired criterion. Refer infoBottleneck.py for usage
 
-
-    print("Performing agglomerative clustering using IB objective...")
-    N,P = np.shape(p_y_x)    
     np.random.seed(1000)
-    p_c = np.empty(N)    
+    print("Performing agglomerative clustering using IB objective...")
+    N,P = np.shape(p_y_x)
+    p_c = np.empty(N)
     p_y_c = np.empty((N,P))    # p(y|c), NOT p(y,c)
+
+    if side_p_y_x is not None:
+	Q = np.shape(side_p_y_x)[1]
+	side_p_y_c = np.empty((N,Q))
+    if weighted_p_y_x is not None:
+	R = np.shape(weighted_p_y_x)[1]
+        weighted_p_y_c = np.empty((N,R))	
+
     p_c_x = np.zeros((N,N))
     p_x_c = np.zeros((N,N))
-    p_x_y_joint = getJointFromConditional(p_y_x)
     delta_F = np.zeros((N,N))
     N_init = N
 
@@ -319,17 +394,47 @@ def cluster(p_y_x, beta, visual):
         p_x_c[i,i] = 1.0
         for j in range(P):
             p_y_c[i,j] = p_y_x[i,j]
+	if side_p_y_x is not None:
+            for j in range(Q):
+	        side_p_y_c[i,j] = side_p_y_x[i,j]
+	if weighted_p_y_x is not None:
+            for j in range(R):
+	        weighted_p_y_c[i,j] = weighted_p_y_x[i,j]
 
-    for i in range(N):
-        for j in range(i):
-#            delta_F[i,j] = (p_c[i] + p_c[j])*(JS_div(p_y_c,p_c,i,j,1) - (1/beta)*JS_div(p_x_c,p_c,i,j,2)) # Slower alternative
-            delta_F[i,j] = fastverbose_computeDeltaObj(p_y_c[i,:], p_y_c[j,:], p_x_c[i,:], p_x_c[j,:], p_c, i, j, beta)
-        for j in range(i,N):
-            delta_F[i,j] = float("inf")
-    
-#    print p_y_c
-#    print p_c_x
-#    print p_x_c
+
+
+    if side_p_y_x is not None and weighted_p_y_x is not None:
+
+        for i in range(N):
+            for j in range(i):
+                delta_F[i,j] = fastverbose_oneBigFunction(p_y_c[i,:], p_y_c[j,:], p_x_c[i,:], p_x_c[j,:], side_p_y_c[i,:], side_p_y_c[j,:], weighted_p_y_c[i,:], weighted_p_y_c[j,:], p_c, i, j, beta, alpha, weights)
+            for j in range(i,N):
+                delta_F[i,j] = float("inf")
+
+    elif side_p_y_x is not None:
+
+        for i in range(N):
+            for j in range(i):
+                delta_F[i,j] = fastverbose_oneBigFunction(p_y_c[i,:], p_y_c[j,:], p_x_c[i,:], p_x_c[j,:], side_p_y_c[i,:], side_p_y_c[j,:], None, None, p_c, i, j, beta, alpha, None)
+            for j in range(i,N):
+                delta_F[i,j] = float("inf")
+
+    elif weighted_p_y_x is not None:
+
+        for i in range(N):
+            for j in range(i):
+                delta_F[i,j] = fastverbose_oneBigFunction(p_y_c[i,:], p_y_c[j,:], p_x_c[i,:], p_x_c[j,:], None, None, weighted_p_y_c[i,:], weighted_p_y_c[j,:], p_c, i, j, beta, None, weights)
+            for j in range(i,N):
+                delta_F[i,j] = float("inf")
+
+    else:
+
+        for i in range(N):
+            for j in range(i):
+                delta_F[i,j] = fastverbose_oneBigFunction(p_y_c[i,:], p_y_c[j,:], p_x_c[i,:], p_x_c[j,:], None, None, None, None, p_c, i, j, beta, None, None)
+            for j in range(i,N):
+                delta_F[i,j] = float("inf")
+
 
     # Clustering
     max_clust_ind = max(C)
@@ -358,6 +463,10 @@ def cluster(p_y_x, beta, visual):
                 p_c_new.append(p_c[i])
 
         p_y_c_new = np.delete(p_y_c,(i_opt,j_opt),0)
+	if side_p_y_x is not None:
+	    side_p_y_c_new = np.delete(side_p_y_c,(i_opt,j_opt),0)
+	if weighted_p_y_x is not None:
+	    weighted_p_y_c_new = np.delete(weighted_p_y_c,(i_opt,j_opt),0)
         p_c_x_new = np.delete(p_c_x,(i_opt,j_opt),1)
         delta_F = np.delete(np.delete(delta_F,(i_opt,j_opt),0),(i_opt,j_opt),1)
 
@@ -368,20 +477,39 @@ def cluster(p_y_x, beta, visual):
             temp1[j] = (p_y_c[i_opt,j]*p_c[i_opt] + p_y_c[j_opt,j]*p_c[j_opt])/(p_c[i_opt] + p_c[j_opt])
         p_y_c_new = np.vstack((p_y_c_new,temp1))
 
+	if side_p_y_x is not None:
+            temp2 = np.zeros(Q)
+	    for j in range(Q):
+                temp2[j] = (side_p_y_c[i_opt,j]*p_c[i_opt] + side_p_y_c[j_opt,j]*p_c[j_opt])/(p_c[i_opt] + p_c[j_opt])
+            side_p_y_c_new = np.vstack((side_p_y_c_new,temp2))
+
+	if weighted_p_y_x is not None:
+            temp3 = np.zeros(R)
+	    for j in range(R):
+	        temp3[j] = (weighted_p_y_c[i_opt,j]*p_c[i_opt] + weighted_p_y_c[j_opt,j]*p_c[j_opt])/(p_c[i_opt] + p_c[j_opt])
+	    weighted_p_y_c_new = np.vstack((weighted_p_y_c_new,temp3))
+
         # Update p(c|x)
-        temp2 = np.zeros(N_init)
+        temp = np.zeros(N_init)
         for i in range(N):
             if i!=i_opt and i!=j_opt:
-                temp2[i] = 0
+                temp[i] = 0
             else:
-                temp2[i] = 1
-        p_c_x_new = np.concatenate((p_c_x_new,np.reshape(temp2,(len(temp2),1))),1)
+                temp[i] = 1
+        p_c_x_new = np.concatenate((p_c_x_new,np.reshape(temp,(len(temp),1))),1)
     
         # Update p(c)
         p_c_new.append(p_c[i_opt] + p_c[j_opt])
         max_clust_ind += 1
         C = C_new
         p_y_c = p_y_c_new
+        p_y_c[p_y_c<10e-10] = 0.
+	if side_p_y_x is not None:
+            side_p_y_c = side_p_y_c_new
+	    side_p_y_c[side_p_y_c<10e-10] = 0.
+	if weighted_p_y_x is not None:
+	    weighted_p_y_c = weighted_p_y_c_new
+            weighted_p_y_c[weighted_p_y_c<10e-10] = 0.
         p_c_x = p_c_x_new
         p_c = np.asarray(p_c_new)
 
@@ -389,7 +517,6 @@ def cluster(p_y_x, beta, visual):
         p_x_c = np.divide(p_c_x.T,N_init*repmat(p_c,N_init,1).T) # this should be of shape (N-1,N_init)
 
         N -= 1
-        p_y_c[p_y_c<10e-10] = 0.
         p_c_x[p_c_x<10e-10] = 0.
         p_x_c[p_x_c<10e-10] = 0.
         p_c[p_c<10e-10] = 0.
@@ -399,26 +526,19 @@ def cluster(p_y_x, beta, visual):
         # Add a row 
         newrow = np.zeros(N-1)
         for i in range(N-1):
-            newrow[i] = fastverbose_computeDeltaObj(p_y_c[i,:], p_y_c[len(p_c)-1,:], p_x_c[i,:], p_x_c[len(p_c)-1,:], p_c, i, len(p_c)-1, beta)
+	    if side_p_y_x is not None and weighted_p_y_x is not None:
+                newrow[i] = fastverbose_oneBigFunction(p_y_c[i,:], p_y_c[len(p_c)-1,:], p_x_c[i,:], p_x_c[len(p_c)-1,:], side_p_y_c[i,:], side_p_y_c[len(p_c)-1,:], weighted_p_y_c[i,:], weighted_p_y_c[len(p_c)-1,:], p_c, i, len(p_c)-1, beta, alpha, weights)
+	    elif side_p_y_x is not None:
+                newrow[i] = fastverbose_oneBigFunction(p_y_c[i,:], p_y_c[len(p_c)-1,:], p_x_c[i,:], p_x_c[len(p_c)-1,:], side_p_y_c[i,:], side_p_y_c[len(p_c)-1,:], None, None, p_c, i, len(p_c)-1, beta, alpha, None)
+	    elif weighted_p_y_x is not None:
+                newrow[i] = fastverbose_oneBigFunction(p_y_c[i,:], p_y_c[len(p_c)-1,:], p_x_c[i,:], p_x_c[len(p_c)-1,:], None, None, weighted_p_y_c[i,:], weighted_p_y_c[len(p_c)-1,:], p_c, i, len(p_c)-1, beta, None, weights)
+	    else:
+                newrow[i] = fastverbose_oneBigFunction(p_y_c[i,:], p_y_c[len(p_c)-1,:], p_x_c[i,:], p_x_c[len(p_c)-1,:], None, None, None, None, p_c, i, len(p_c)-1, None, None, None)
+	
         # Add a column of "inf"
         newcol = float("inf")*np.ones(N)
 
         delta_F = np.concatenate((np.vstack((delta_F,newrow)),np.reshape(newcol,(len(newcol),1))),1)
-
-#        print p_y_c.shape
-#        print p_c_x.shape
-#        print p_x_c.shape
-#        print p_c.shape        
-
-#            
-#        print "p_y_c:"
-#        print p_y_c
-#        print "p_c_x:"
-#        print p_c_x
-#        print "p_x_c:"
-#        print p_x_c
-#        print "p_c:"
-#        print p_c
 
 
     # Complete the dendrogram variable
@@ -432,6 +552,7 @@ def cluster(p_y_x, beta, visual):
         plt.show()
 
     return Z, C
+
 
 
 
@@ -544,7 +665,4 @@ def writeRttmFile(pass4hyp, frameRate, wavFile, rttmFile):
     
     if spkrLabels[-1]!=-1:
         fid.write("SPEAKER %s 0 %3.2f %3.2f <NA> <NA> spkr%d <NA>\n" %(wavFile.split('/')[-1].split('.')[0], spkrChangePoints[-1]/float(frameRate), (len(pass4hyp) - spkrChangePoints[-1])/float(frameRate), spkrLabels[-1]) )
-    fid.close()
-        
-    
-
+    fid.close()       
