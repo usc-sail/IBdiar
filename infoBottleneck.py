@@ -12,7 +12,7 @@ from scipy.cluster.hierarchy import fcluster
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--beta", help="Lagrangian parameter in the IB criterion (2)", default=2,type=int)
+parser.add_argument("--beta", help="Lagrangian parameter in the IB criterion (10)", default=10,type=float)
 parser.add_argument("--segLen", help="Size of each segment during uniform segmentation (seconds, 2)",default=2,type=int)
 parser.add_argument("--frameRate", help="Number of frames per second (Hz, 50). Must match with VAD file, if supplied",default=50,type=int)
 parser.add_argument("--numCluster", help="Number of speakers (2)",default=2,type=int)
@@ -46,7 +46,7 @@ if args.library == "kaldi" and args.kaldiRoot == None:
 np.random.seed(1000)
 if args.vadFile is not None:
     vad = np.loadtxt(args.vadFile).astype('bool')
-    vad = np.interp(np.linspace(0,len(vad),int(len(vad)*args.frameRate/100.0)),np.arange(len(vad)),vad).astype('bool')
+    #vad = np.interp(np.linspace(0,len(vad),int(len(vad)*args.frameRate/100.0)),np.arange(len(vad)),vad).astype('bool')
 else:
     vad = None
 
